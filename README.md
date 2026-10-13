@@ -5,7 +5,7 @@
 
 ```
 切西瓜/
-├── index.html          # 全部内容：HTML + CSS + JS（约 48 KB）
+├── index.html          # 全部内容：HTML + CSS + JS（约 74 KB，含 6 关关卡系统）
 ├── assets/
 │   ├── kai_01.jpg ~ kai_12.jpg   # 十二钗头像（512×512）
 │   └── campus.jpg                # 背景（华南理工校园照，1280×1121）
@@ -23,7 +23,18 @@
 | 手指滑动 | 手机端划刀 |
 | 右上角喇叭按钮 | 静音 / 取消静音（状态会记住） |
 
-开始页点「开始游戏」，结束页可以「再来一局」或「回首页」。
+打开是开始页：点「开始游戏」从**最高已解锁的关卡**继续，点「关卡选择」可以挑任意已解锁的关卡重玩。
+
+### 关卡系统（6 关）
+
+* 每关有**目标**：**本关内切中 N 个水果**就算过关（进度条在顶部关卡条上）。
+* 过关 → 弹**过关面板**（本关切中数 / 本关得分 / 用时 / 总分 + **下一关预览**）→ 点「进入第 N 关」接着打；第 6 关通关后按钮变成「重玩第 6 关」。
+* 失败（漏接 3 个水果 / 切到炸弹）→ 弹**失败面板**，按钮是「重试本关」「回关卡选择」。
+* **失败不会清掉解锁进度**：已解锁的关卡永远能重玩，`localStorage` 里的解锁数只增不减。
+* HUD：顶栏是「分数 / 最高 / 生命」，下面一条**关卡条**是「第 N / 6 关 · 难度标签 · 目标进度条 · 总分 · 最高分」。
+* 每关开始会弹一条 1.9 秒的提示（例：`第 3 关 · 双层恺登场`）。
+* 想**中途换关**：直接点顶部那条**关卡条**（右端写着「切换 ⇄」）就能回关卡选择，不用故意送死。
+* 关卡选择页：6 张卡片，未解锁的灰掉并显示「🔒 未解锁」，已解锁的显示「最好 N 分」（过关时的本关得分）。
 
 ### 规则
 
@@ -31,12 +42,12 @@
 | --- | --- |
 | 刀光划过水果（线段与圆相交判定） | **+1 分**，水果分成两半飞散，点亮底部图鉴 |
 | 0.34 秒内连续切中第 n 个（n ≥ 2） | **额外 + n × 2 分**，飘字显示「n 连击 +加分」 |
-| 切到炸弹（黑球 + 引线 + 绷绷恺的脸） | **本局直接结束**（不减命、不扣分，已得分保留） |
-| 水果掉出屏幕 | 记 1 次漏接，**漏接 3 次本局结束** |
+| 切到炸弹（黑球 + 引线 + 绷绷恺的脸） | **本关直接失败**（不减命、不扣分，已得分保留） |
+| 水果掉出屏幕 | 记 1 次漏接，**漏接 3 次本关失败** |
 | 炸弹掉出屏幕 | **不扣命**（躲开炸弹是正确打法） |
+| 切中「双层恺」（金圈 + `2` 角标） | 第一刀只砍掉金色外壳（缩小 + 白闪 + 「还有一层！」飘字），**要补第二刀才真正切开计分** |
+| 本关切中数达到目标 | **过关**，解锁下一关（弹提示 + 金色粒子 + 过关琶音） |
 | 十二钗每张脸第一次切到 | 底部 12 个小点 + 名字一览里的名字一起点亮 |
-
-难度会随分数缓慢上升（出怪间隔变短、一次抛 2 个的概率变大），上限为 `score = 90` 时的强度。
 
 ### 十二钗（顺序固定）
 
@@ -51,22 +62,56 @@
 
 ---
 
-## 二、存档（localStorage）
+## 二、难度表（6 关）
+
+数值的**唯一来源**是 `index.html` 里的 `LEVEL_CFG` 数组（每关一个对象），下面这张表就是它的内容。
+
+* **出怪间隔**：两次抛东西之间的时间；**同屏上限**：画面上同时最多几个（水果 + 炸弹）。
+* **炸弹 / 双层**：每次抛出是该类型的概率（剩下的才是普通水果）。
+* **初速≈ / 滞空≈**：按 440×660（2:3 画布）算出的平均值，公式 `v0 = √(2·g·H·apex) × (speedMin+speedMax)/2`，`滞空 = 2·v0/g`。
+  关卡越高，**重力越大、顶点越低 → 初速更高、滞空更短**，留给你的反应时间越少。
+
+| 关卡 | 目标（切中数） | 出怪间隔 | 同屏上限 | 炸弹比例 | 双层恺比例 | 一次抛 2 个 | 重力 | 初速≈ | 滞空≈ | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 8 | 1.10 ~ 1.50 s | 3 | **0%** | 0% | 10% | 1500 px/s² | 1186 px/s | 1.58 s | 先熟悉手感 |
+| 2 | 12 | 0.96 ~ 1.30 s | 4 | 6% | 0% | 22% | 1600 px/s² | 1204 px/s | 1.51 s | 炸弹开始出现 |
+| 3 | 16 | 0.84 ~ 1.14 s | 4 | 12% | 10% | 35% | 1720 px/s² | 1229 px/s | 1.43 s | 双层恺登场 |
+| 4 | 20 | 0.72 ~ 1.00 s | 5 | 18% | 15% | 50% | 1860 px/s² | 1267 px/s | 1.36 s | 手速要快 |
+| 5 | 24 | 0.60 ~ 0.86 s | 5 | 23% | 19% | 65% | 2050 px/s² | 1303 px/s | 1.27 s | 炸弹密集，稳住 |
+| 6 | 28 | **0.45 ~ 0.70 s** | 6 | **28%** | 22% | 80% | 2250 px/s² | 1332 px/s | 1.18 s | 极限手速 |
+
+**真实跑图实测**（无头 Chrome，`_selftest/probe_rate.js`：让游戏自己跑、每 50 ms 采样 `spawnStat`，漏接 3 次就重开本关；
+下表是 3 次运行的合计）：
+
+| 关卡 | 采样时长 | 出怪波数 | 抛出总数 | 炸弹（实测） | 双层恺（实测） | 同屏峰值 | 平均波间隔 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 54.0 s | 36 | 38 | 0（0%） | 0（0%） | 3（上限 3） | 1.50 s（配置 1.10~1.50） |
+| 6 | 46.6 s | 75 | 130 | 40（30.8%） | 35（26.9%） | 6（上限 6） | 0.62 s（配置 0.45~0.70） |
+
+第 6 关的炸弹/双层实测（30.8% / 26.9%）比配置值（28% / 22%）略高一点，是 130 个样本的随机波动（±1σ ≈ 3.9 个百分点）；
+第 1 关实测 38 个里 0 炸弹 0 双层、间隔 1.50 s，与配置完全一致。
+
+---
+
+## 三、存档（localStorage）
 
 | 键名 | 内容 | 说明 |
 | --- | --- | --- |
 | `fruit-yanglukai:best:v1` | 最高分（十进制字符串） | **需求固定的键名，请勿改动** |
 | `fruit-yanglukai:codex:v1` | 12 位 0/1 字符串 | `1` 表示该钗已收集，如 `000100000000` |
 | `fruit-yanglukai:muted:v1` | `'1'` / `'0'` | 静音开关 |
+| `fruit-yanglukai:progress:v1` | JSON，如 `{"v":1,"unlocked":2,"best":[78,0,0,0,0,0]}` | **新增**：`unlocked` = 已解锁到第几关（1~6，只增不减）；`best[i]` = 第 i+1 关的最好成绩（过关时的本关得分） |
 
 最高分只在本局结束时、且超过旧纪录时写入；结束页会显示「🎉 破纪录啦！」。
+关卡进度只在**过关**时写入（`unlocked = max(旧值, 通关关卡数 + 1)`），所以失败不会让已解锁的关卡变回锁定；
+存档格式不对/被改坏时 `JSON.parse` 会走 `try/catch` 兜底，退回「只解锁第 1 关」。
 localStorage 被禁用（隐私模式等）时所有读写都用 `try/catch` 兜住，游戏照常能玩，只是不记档。
 
-清档：浏览器控制台执行 `localStorage.removeItem('fruit-yanglukai:best:v1')`（其余两个键同理）。
+清档：浏览器控制台执行 `localStorage.removeItem('fruit-yanglukai:best:v1')`（其余三个键同理）。
 
 ---
 
-## 三、音效
+## 四、音效
 
 全部用 **WebAudio 现场合成**，仓库里没有任何音频文件：
 
@@ -78,13 +123,15 @@ localStorage 被禁用（隐私模式等）时所有读写都用 `try/catch` 兜
 | 图鉴点亮 | 1320 Hz 正弦铃音 |
 | 炸弹 | 低通噪声轰鸣 + 140 → 38 Hz 正弦下坠 |
 | 漏接 | 锯齿波 240 → 110 Hz |
+| 双层恺外壳碎 | 两声 780/520 → 300 Hz 方波短促下坠 |
+| 过关 | 523 → 1047 Hz 四音上行琶音 |
 
 浏览器要求用户手势后才能播声音，所以 `AudioContext` 在点「开始游戏」或第一次划刀时才创建/恢复。
 静音时**不会**创建 `AudioContext`，也不会有任何声音调用。
 
 ---
 
-## 四、测试钩子
+## 五、测试钩子
 
 供自动化测试使用，写在 `window` 上，正常游玩不受影响。
 **所有坐标都是「画布左上角为原点」的 CSS 像素**（画布尺寸见 `__state().fruits` 里的 `x/y/r` 同一坐标系）。
@@ -92,8 +139,11 @@ localStorage 被禁用（隐私模式等）时所有读写都用 `try/catch` 兜
 ```js
 // 状态快照（每次返回新对象，改它不影响游戏）
 window.__state();
-// -> { score, best, lives, running, fruits: [{level,name,x,y,r,bomb}], collected: [0/1 ×12], muted }
-//    其中 running === true 表示本局进行中
+// -> { score, best, lives, running, phase, level, levelIndex, levelCount, goal,
+//      levelSliced, levelScore, levelTime, unlocked, levelBest, cfg,
+//      fruits: [{level,name,x,y,r,bomb,hp,dbl}], collected: [0/1 ×12], muted, spawnStat }
+//    phase: 'idle' | 'select' | 'playing' | 'clear' | 'over'；running === (phase === 'playing')
+//    level 是 1 基（第几关），levelIndex 是 0 基；goal 是本关目标切中数
 
 // 放一个水果（level 0~11，即十二钗下标）；若当前不在游戏中会自动开一局
 window.__spawn(levelIndex, x, y, vx, vy, r);
@@ -101,11 +151,36 @@ window.__spawn(levelIndex, x, y, vx, vy, r);
 // 放一个炸弹
 window.__spawnBomb(x, y, vx, vy, r);
 
+// 放一个「双层恺」（hp = 2，要切两刀）
+window.__spawnDouble(levelIndex, x, y, vx, vy, r);
+
 // 模拟一次划切：与真实鼠标/手指走完全相同的判定逻辑，返回切中个数
 window.__slice(x1, y1, x2, y2);
 
+// 直接跳到第 i 关（0 基）并开局，返回状态快照
+window.__startLevel(i);
+
+// 直接触发过关结算（跳过切水果），返回状态快照
+window.__forceClear();
+
+// 某一关的难度参数 + 按当前画布算出的初速/滞空
+window.__cfg(i);
+// -> { level, goal, spawnMin, spawnMax, gravity, apex, speedMin, speedMax,
+//      maxOn, bomb, dbl, wave2, hint, v0, airtime, boardH }
+
+// 关卡进度快照 { unlocked, best, raw }（raw 是 localStorage 里的原始字符串）
+window.__progress();
+
+// 面板/提示可见状态 + HUD 文案（start/select/clear/over 为 true 表示该面板隐藏）
+window.__ui();
+// -> { start, select, clear, over, toast, toastOn, hudLevel, hudGoal, hudTotal,
+//      clearTitle, nextTitle, nextBody, overTitle, overLevel, overProgress, lockedCards }
+
+// 重新从 localStorage 读一遍进度（等价于「刷新页面后」的读取路径）
+window.__reloadSave();
+
 window.__ready;    // 初始化完成标记
-window.__version;  // 'fruit-yanglukai-1.0'
+window.__version;  // 'fruit-yanglukai-2.0'
 ```
 
 示例：
@@ -115,33 +190,56 @@ window.__spawn(3, 120, 300, 0, 0, 40);   // 在 (120,300) 放一个 04 Wink恺
 window.__slice(20, 300, 220, 300);       // 横着切过去
 window.__state().score;                  // -> 1
 window.__state().collected[3];           // -> 1
+window.__state().levelSliced;            // -> 1（本关进度）
+
+window.__startLevel(0);                  // 从第 1 关开始
+var n = window.__state().goal;           // 8
+for (var i = 0; i < n; i++) {            // 连续切满目标 → 过关
+  window.__spawn(i % 12, 120, 300, 0, 0, 40);
+  window.__slice(20, 300, 260, 300);
+}
+window.__state().phase;                  // -> 'clear'
+window.__state().unlocked;               // -> 2
+localStorage.getItem('fruit-yanglukai:progress:v1');   // -> {"v":1,"unlocked":2,...}
 ```
 
-内部数值（想调难度可以改 `CFG`，在 `<script>` 开头）：
-重力 `1500 px/s²`、漏接上限 `3`、连击窗口 `0.34 s`、炸弹概率 `0.16`、水果半径 `33~46`、炸弹半径 `30`。
+全局常量（`CFG`，与关卡无关）：漏接上限 `3`、连击窗口 `0.34 s`、水果半径 `33~46`、炸弹半径 `30`；
+每关的重力/初速/间隔/比例全在 `LEVEL_CFG`（见第二节难度表）。
 
 ---
 
-## 五、实现要点
+## 六、实现要点
 
 * 画布 `2:3` 自适应（`.board` 用 `aspect-ratio`），`devicePixelRatio` 上限钳到 `2.5`，避免手机上缓冲区过大。
 * 主循环 `requestAnimationFrame`，`dt` 上限 `0.05 s`，切后台回来不会物理跳步。
 * 切中判定：**线段 vs 圆**（点到线段最短距离），刀光本身是一条随时间淡出的折线。
 * 切开效果：`ctx.clip()` 裁出两个半圆 + 各自反向初速度 + 自转 + 最后 0.7 秒淡出。
 * 炸弹脸用 `kai_10.jpg`；引线火花用正弦做呼吸动画。
-* 手机端 `touch-action: none` + `overscroll-behavior: none`，`touchstart/touchmove` 用 `{ passive: false }` 并 `preventDefault()`，不会被页面滚动抢走手势。
+* 关卡难度集中在 `LEVEL_CFG` 一个数组里：出怪间隔、重力、抛物线顶点、初速抖动、同屏上限、炸弹/双层比例、一次抛 2 个的概率。
+  出怪、初速、重力都从 `curCfg()` 读当前关卡，不再有「按分数缓慢变难」的隐藏曲线。
+* 双层恺：`f.hp = 2` 的普通水果，第一刀只触发 `playArmor()` + 缩小 + 白闪（`f.flashT`），不记分不死；
+  第二刀才走正常的切开/计分/图鉴逻辑，掉出屏幕照样算 1 次漏接。
+* 同屏上限：`spawnFruit()` 里 `state.fruits.length >= maxOn` 直接不出，`spawnWave()` 也会复查一次（延迟出怪期间数量可能变化）。
+* 关卡状态机：`phase = idle | select | playing | clear | over`，`update()` 只在 `playing` 时出怪/判定漏接；
+  过关与回关卡选择会 `clearField()` 清场，失败时保留半果/粒子把动画飞完。
+* 入口：开始页「关卡选择」/ 失败页「回关卡选择」/ 过关页「回关卡选择」/ **点顶部关卡条**（右端「切换 ⇄」）都走同一个 `openSelect()`。
+* 进度存档：`levelClear()` 里 `unlocked = max(unlocked, 关卡下标 + 2)` 再写 `fruit-yanglukai:progress:v1`，天然只增不减。
 * 画布背景用 CSS `url(assets/campus.jpg)` 铺在 `.board` 上，canvas 只画内容并叠一层淡色，保证照片清晰。
 
-## 六、已知限制
+## 七、已知限制
 
-* `file://` 下画布被照片「污染」（tainted canvas），`getImageData()/toDataURL()` 会抛错；这是浏览器安全策略，不影响游玩。要截图校验请用 `--screenshot` 或走 DevTools 协议。
+* `file://` 下画布被照片「污染」（tainted canvas），`getImageData()/toDataURL()` 会抛错；这是浏览器安全策略，不影响游玩。
+  截图校验要走 DevTools 协议的 `Page.captureScreenshot`；`--virtual-time-budget` 配 `--screenshot` 不会合成 canvas 图层，截出来是空的。
 * 头像按整张 512×512 圆形裁切显示，没有做人脸检测/居中，如果某张照片人脸偏上，可以在 CSS 层面调 `.dot { background-position }`，或用画布里 `drawImage` 的源矩形微调。
 * 不支持键盘操作。
 * 音效在极少数老浏览器上没有 `AudioContext` 时自动静默跳过。
+* **难度数值只做了参数与采样层面的自测**（无头 Chrome 跑出怪统计），没有真人手感测试；
+  第 5、6 关（炸弹 23~28%、间隔 0.45~0.7 s、同屏 5~6）实际可能偏难，觉得过不去就把 `LEVEL_CFG` 里的 `bomb`/`spawnMin`/`spawnMax` 调小。
+* 关卡进度只在过关时记录；中途失败不会更新「最好成绩」，也不会记录「玩到第几关」。
 
 ---
 
-## 七、部署
+## 八、部署
 
 * 双击 `index.html` 直接玩（`file://` 也可以，照片和存档都正常）。
 * 想放到网上：把整个 `切西瓜` 目录上传即可（`.nojekyll` 已备好），例如 GitHub Pages 的项目子目录。
