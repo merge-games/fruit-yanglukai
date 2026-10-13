@@ -1164,7 +1164,6 @@
     // 双层恺：第一刀只砍掉金色外壳，缩小后继续飞，需要再补一刀
     if (f.hp > 1) {
       f.hp -= 1;
-      f.immuneUntil = perf() + SHELL_SEC;   // 防止同一次滑动（或极快的第二划）把它一次切开
       f.flashT = 0.28;
       f.r = Math.max(CFG.minRadius * 0.82, f.r * 0.76);
       f.vx *= 1.12;
@@ -1213,7 +1212,6 @@
 
   // 一次划切（真实滑动与测试钩子共用这一条逻辑）
   var swipeId = 0;        // 每次按下（新手势）自增：同一次滑动对同一个水果只判定一次
-  var SHELL_SEC = 0.17;    // 双层恺碎壳后的免疫时间（秒，perf() 用秒），必须再划一刀才算数
 
   function sliceSegment(x1, y1, x2, y2, dir) {
     if (state.phase !== 'playing') return 0;
@@ -1224,8 +1222,7 @@
       var f = list[i];
       if (f.dead) continue;
       if (state.phase !== 'playing') break;   // 切到炸弹已经结束
-      if (f.hitSwipe === swipeId) continue;                        // 同一次滑动不重复判定
-      if (f.immuneUntil && perf() < f.immuneUntil) continue;       // 刚碎壳的双层恺，短免疫
+      if (f.hitSwipe === swipeId) continue;   // 同一次滑动（含多段）只判定一次；抬手后新手势会放行第二刀
       if (segCircle(x1, y1, x2, y2, f.x, f.y, f.r)) { f.hitSwipe = swipeId; cut(f, a); hits += 1; }
     }
     if (hits >= 2) playCombo(hits);
@@ -1615,6 +1612,7 @@
 
   // 鼠标
   canvas.addEventListener('mousedown', function (e) {
+    swipeId += 1;   // 新手势（防御性：与 onDown 内自增互为保险）
     var p = localPoint(e.clientX, e.clientY);
     onDown(p.x, p.y);
     e.preventDefault();
@@ -1629,6 +1627,7 @@
 
   // 触摸
   canvas.addEventListener('touchstart', function (e) {
+    swipeId += 1;
     if (!e.touches.length) return;
     var p = localPoint(e.touches[0].clientX, e.touches[0].clientY);
     onDown(p.x, p.y);
